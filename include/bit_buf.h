@@ -1,6 +1,8 @@
 #include <cstdio>
 #include <cstdint>
 #include <cassert>
+#ifndef BIT_BUF_H
+#define BIT_BUF_H
 struct bit_buf{
 	uint64_t buffer;
 	uint16_t now;
@@ -54,3 +56,4 @@ struct bit_buf{
 		return res;
 	}
 };
+#endif
