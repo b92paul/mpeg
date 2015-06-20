@@ -31,8 +31,8 @@ struct group_of_pictures{
 			}
 			bb->next_start_code();
 		}
-		uint32_t tmp = bb->nextbits();
-		printf("%x\n",tmp);
+		//uint32_t tmp = bb->nextbits();
+		//printf("%x\n",tmp);
 	}
 };
 #endif
