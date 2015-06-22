@@ -18,7 +18,7 @@ uint16_t b2l(const char* bits){
 }
 struct macroblock_addr_vlc{
 	uint16_t len;
-	uint16_t incremnet_value;
+	uint16_t incr_value;
 };
 struct macroblock_addr_vlc_init{
 	uint16_t bits;
@@ -402,9 +402,6 @@ void init_dct_coef_f_vlc(){
 			dcfv[(dcfvi[i].bits<<t)|j] = dcfvi[i].dcfv;
 		}
 	}
-	//printf("%u %d\n",dcfv[0x0400].run,dcfv[0x0400].level);
-	//printf("%u %d\n",dcfv[0x8400].run,dcfv[0x8400].level);
-	//printf("%u %d\n",dcfv[0x9400].run,dcfv[0x9400].level);
 }
 struct dct_coef_n_vlc{
 	uint16_t len;
@@ -539,9 +536,72 @@ void init_dct_coef_n_vlc(){
 			dcnv[(dcnvi[i].bits<<t)|j] = dcnvi[i].dcnv;
 		}
 	}
-	//printf("%u %d\n",dcnv[0x0400].run,dcnv[0x0400].level);
-	//printf("%u %d\n",dcnv[0xc400].run,dcnv[0xc400].level);
-	//printf("%u %d\n",dcnv[0x9400].run,dcnv[0x9400].level);
+}
+struct macroblock_type_vlc{
+	uint16_t len;
+	uint8_t macroblock_quant;
+	uint8_t macroblock_motion_forward;
+	uint8_t macroblock_motion_backward;
+	uint8_t macroblock_pattern;
+	uint8_t macroblock_intra;
+};
+struct macroblock_type_vlc_init{
+	uint16_t bits;
+	macroblock_type_vlc mtv;
+};
+
+macroblock_type_vlc_init mtvii[] = 
+{
+	{b2i("1"),{b2l("1"), 0, 0, 0, 0, 1}},
+	{b2i("01"),{b2l("01"), 1, 0, 0, 0, 1}},
+};
+macroblock_type_vlc_init mtvip[] = 
+	{
+		{b2i("1"),{b2l("1"), 0, 1, 0, 1, 0}},
+		{b2i("01"),{b2l("01"), 0, 0, 0, 1, 0}},
+		{b2i("001"),{b2l("001"), 0, 1, 0, 0, 0}},
+		{b2i("00011"),{b2l("00011"), 0, 0, 0, 0, 1}},
+		{b2i("00010"),{b2l("00010"), 1, 1, 0, 1, 0}},
+		{b2i("00001"),{b2l("00001"), 1, 0, 0, 1, 0}},
+		{b2i("000001"),{b2l("000001"), 1, 0, 0, 0, 1}},
+	};
+macroblock_type_vlc_init mtvib[] =
+{
+	{b2i("10"),{b2l("10"), 0, 1, 1, 0, 0}},
+	{b2i("11"),{b2l("11"), 0, 1, 1, 1, 0}},
+	{b2i("010"),{b2l("010"), 0, 0, 1, 0, 0}},
+	{b2i("011"),{b2l("011"), 0, 0, 1, 1, 0}},
+	{b2i("0010"),{b2l("0010"), 0, 1, 0, 0, 0}},
+	{b2i("0011"),{b2l("0011"), 0, 1, 0, 1, 0}},
+	{b2i("00011"),{b2l("00011"), 0, 0, 0, 0, 1}},
+	{b2i("00010"),{b2l("00010"), 1, 1, 1, 1, 0}},
+	{b2i("000011"),{b2l("000011"), 1, 1, 0, 1, 0}},
+	{b2i("000010"),{b2l("000010"), 1, 0, 1, 1, 0}},
+	{b2i("000001"),{b2l("000001"), 1, 0, 0, 0, 1}},
+};
+macroblock_type_vlc_init mtvid[] = 
+{
+	{b2i("1"),{b2l("1"), 0, 0, 0, 0, 1}},
+};
+macroblock_type_vlc_init* mtvi[] = {mtvii,mtvib,mtvip,mtvid};
+uint8_t type_size[] = {
+	sizeof(mtvii)/sizeof(*mtvii),
+	sizeof(mtvip)/sizeof(*mtvip),
+	sizeof(mtvib)/sizeof(*mtvib),
+	sizeof(mtvid)/sizeof(*mtvid),
+};
+macroblock_type_vlc mtv[4][1<<16];
+void init_macroblock_type_vlc(){
+	for(int type=0;type<4;type++){
+		int array_size = type_size[type];
+		printf("array_size: %d\n",array_size);
+		for(int i=0;i<array_size;i++){
+			int t = 16-mtvi[type][i].mtv.len;
+			for(int j=0;j<(1<<t);j++){
+				mtv[type][(mtvi[type][i].bits<<t)|j] = mtvi[type][i].mtv;
+			}
+		}
+	}
 }
 void init_vlcs(){
 	init_macroblock_addr_vlc();
@@ -551,6 +611,7 @@ void init_vlcs(){
 	init_dct_coef_chr_vlc();
 	init_dct_coef_f_vlc();
 	init_dct_coef_n_vlc();
+	init_macroblock_type_vlc();
 	return;
 }
 #endif

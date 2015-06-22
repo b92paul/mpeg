@@ -16,6 +16,13 @@ struct sequence_header{
 	uint8_t constrained_parameter_flag;
 	uint8_t load_intra_quantizer_matrix;
 	uint8_t load_non_intra_quantizer_matrix;
+	int pre_macroblock_address;
+	int past_intra_address;
+	int dct_dc_y_past;
+	int dct_dc_cb_past;
+	int dct_dc_cr_past;
+	int mb_width, mb_height;
+	int mb_row, mb_column;
 	uint8_t intra_quantizer_matrix[8][8] = {
 		{ 8,16,19,22,26,27,29,34},
 		{16,16,22,24,27,29,34,37},
@@ -42,7 +49,9 @@ struct sequence_header{
 		assert(sequence_header_code == SEQUENCE_HEADER_CODE);
 		horizontal_size = bb->get(12);
 		vertical_size = bb->get(12);
-		printf("v:%hd, h:%hd\n",horizontal_size,vertical_size);
+		printf("h:%hd, v:%hd\n",horizontal_size,vertical_size);
+		mb_width = (horizontal_size+15)/16;
+		mb_height = (vertical_size+15)/16;
 		pel_aspect_ratio = bb->get(4);
 		picture_rate = bb->get(4);
 		bit_rate = bb->get(18);

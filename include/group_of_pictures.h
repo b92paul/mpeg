@@ -10,12 +10,11 @@ struct group_of_pictures{
 	uint32_t time_code;
 	uint8_t closed_gop;
 	uint8_t broken_link;
-
 	group_of_pictures(bit_buf* _bb):bb(_bb){}
 	void read(){
 		group_start_code = bb->get(32);
+		assert(group_start_code == GROUP_START_CODE);
 		time_code = bb->get(25);
-		// printf("%u\n",time_code);
 		closed_gop = bb->get(1);
 		broken_link = bb->get(1);
 		bb->next_start_code();
@@ -31,8 +30,6 @@ struct group_of_pictures{
 			}
 			bb->next_start_code();
 		}
-		//uint32_t tmp = bb->nextbits();
-		//printf("%x\n",tmp);
 	}
 };
 #endif
