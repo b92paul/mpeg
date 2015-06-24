@@ -18,7 +18,7 @@ uint16_t b2l(const char* bits){
 }
 struct macroblock_addr_vlc{
 	uint16_t len;
-	uint16_t incr_value;
+	int incr_value;
 };
 struct macroblock_addr_vlc_init{
 	uint16_t bits;
@@ -583,7 +583,7 @@ macroblock_type_vlc_init mtvid[] =
 {
 	{b2i("1"),{b2l("1"), 0, 0, 0, 0, 1}},
 };
-macroblock_type_vlc_init* mtvi[] = {mtvii,mtvib,mtvip,mtvid};
+macroblock_type_vlc_init* mtvi[] = {mtvii,mtvip,mtvib,mtvid};
 uint8_t type_size[] = {
 	sizeof(mtvii)/sizeof(*mtvii),
 	sizeof(mtvip)/sizeof(*mtvip),
@@ -594,7 +594,6 @@ macroblock_type_vlc mtv[4][1<<16];
 void init_macroblock_type_vlc(){
 	for(int type=0;type<4;type++){
 		int array_size = type_size[type];
-		printf("array_size: %d\n",array_size);
 		for(int i=0;i<array_size;i++){
 			int t = 16-mtvi[type][i].mtv.len;
 			for(int j=0;j<(1<<t);j++){

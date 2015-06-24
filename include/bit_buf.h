@@ -33,6 +33,9 @@ struct bit_buf{
 		//puts("byte align!!");
 	};
 	uint32_t nextbits(uint8_t size = 32){
+		//printf("%u\n",size);
+		assert(size>0);
+		//assert(size<=32);
 		assert(now < 8);
 		uint8_t s = 40-now-size;
 		assert(s >= 0 && s < 40);

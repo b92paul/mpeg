@@ -6,8 +6,7 @@
 #ifndef SLICE_H
 #define SLICE_H
 bool slice_start_code_check(uint32_t code){
-	code = code ^ 0x00000100;
-	return code<=(uint32_t)0xaf;
+	return  code<=0x1af && code>0x100;
 }
 struct slice{
 	bit_buf* bb;
@@ -15,16 +14,21 @@ struct slice{
 	uint32_t slice_start_code;
 	uint8_t quantizer_scale;
 	uint8_t extra_bit_slice;
-	uint8_t slice_vertical_position;
+	int slice_vertical_position;
 	slice(bit_buf* _bb,sequence_header* _sh):bb(_bb),sh(_sh){}
 	void read(){
 		sh->dct_dc_y_past = sh->dct_dc_cb_past = sh->dct_dc_cr_past = 1024;
+		sh->recon_right_for_pre = sh->recon_down_for_pre = 0;
+		sh->recon_right_for = sh->recon_down_for = 0;
 		sh->past_intra_address = -2;
 		slice_start_code = bb->get(32);
 		assert(slice_start_code_check(slice_start_code));
-		slice_vertical_position = slice_start_code & 0xff;
+		//printf("slice_start_code %x\n",slice_start_code);
+		slice_vertical_position = slice_start_code & 0x000000ff;
+		//printf("vertical %d\n",slice_vertical_position);
 		sh->pre_macroblock_address=(slice_vertical_position-1)*(sh->mb_width)-1;
-		printf("pre_address!!!!!!!!!!!:%d\n",sh->pre_macroblock_address);
+		//printf("pre;%u\n",sh->pre_macroblock_address);
+		//printf("pre_address!!!!!!!!!!!:%d\n",sh->pre_macroblock_address);
 		quantizer_scale = bb->get(5);
 		while( bb->nextbits() == 1){
 			extra_bit_slice = bb->get(1);

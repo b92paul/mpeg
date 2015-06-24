@@ -1,8 +1,9 @@
 #include <cstdio>
 #include <bit_buf.h>
 #include <start_codes.h>
-#ifndef SEQUENCE_HEADER
-#define SEQUENCE_HEADER
+#include <picture.h>
+#ifndef SEQUENCE_HEADER_H
+#define SEQUENCE_HEADER_H
 struct sequence_header{
 	bit_buf* bb;
 	uint32_t sequence_header_code;
@@ -16,6 +17,8 @@ struct sequence_header{
 	uint8_t constrained_parameter_flag;
 	uint8_t load_intra_quantizer_matrix;
 	uint8_t load_non_intra_quantizer_matrix;
+	picture* picture_ref0;
+	picture* picture_ref1;
 	int pre_macroblock_address;
 	int past_intra_address;
 	int dct_dc_y_past;
@@ -23,7 +26,9 @@ struct sequence_header{
 	int dct_dc_cr_past;
 	int mb_width, mb_height;
 	int mb_row, mb_column;
-	uint8_t intra_quantizer_matrix[8][8] = {
+	int recon_right_for_pre, recon_down_for_pre;
+	int recon_right_for, recon_down_for;
+	int intra_quantizer_matrix[8][8] = {
 		{ 8,16,19,22,26,27,29,34},
 		{16,16,22,24,27,29,34,37},
 		{19,22,26,27,29,34,34,38},
@@ -33,9 +38,9 @@ struct sequence_header{
 		{26,27,29,34,38,46,56,69},
 		{27,29,35,38,46,56,69,83}
 	};
-	uint8_t non_intra_quantizer_matrix[8][8] = {
+	int non_intra_quantizer_matrix[8][8] = {
 		{16,16,16,16,16,16,16,16},
-		{16,16,16, 1,16,16,16,16},
+		{16,16,16,16,16,16,16,16},
 		{16,16,16,16,16,16,16,16},
 		{16,16,16,16,16,16,16,16},
 		{16,16,16,16,16,16,16,16},
@@ -44,12 +49,17 @@ struct sequence_header{
 		{16,16,16,16,16,16,16,16}
 	};
 	sequence_header(bit_buf* _bb):bb(_bb){}
+	int counter = 0;
 	void read(){
+		if(counter ==0){
+			picture_ref0 = nullptr;
+			picture_ref1 = nullptr;
+			counter++;
+		}
 		sequence_header_code = bb->get(32);
 		assert(sequence_header_code == SEQUENCE_HEADER_CODE);
 		horizontal_size = bb->get(12);
 		vertical_size = bb->get(12);
-		printf("h:%hd, v:%hd\n",horizontal_size,vertical_size);
 		mb_width = (horizontal_size+15)/16;
 		mb_height = (vertical_size+15)/16;
 		pel_aspect_ratio = bb->get(4);
@@ -84,11 +94,8 @@ struct sequence_header{
 			}
 			bb->next_start_code();
 		}
-		uint32_t tmp;
-		tmp = bb->nextbits();
-		printf("%x\n",tmp);
 
-		puts("read sequence_header done!!!");
+		//puts("read sequence_header done!!!");
 	}
 };
 #endif

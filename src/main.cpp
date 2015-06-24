@@ -29,10 +29,10 @@
 mutex gg;
 volatile int v,h;
 queue<uint8_t*> image_buffer;
-
+int timer = 40;
 void SystemTimer(int _value){
 	glutPostRedisplay();
-	glutTimerFunc(30, SystemTimer, 1);
+	glutTimerFunc(timer, SystemTimer, 1);
 	return;
 }
 void Display(){
@@ -40,7 +40,6 @@ void Display(){
 	uint8_t* ndata;
 	{
 		lock_guard<mutex> lock(gg);
-		printf("queue size: %lu\n",image_buffer.size());
 		if(image_buffer.size()>=1)
 		{
 			ndata = image_buffer.front();
@@ -68,7 +67,7 @@ void picture2buffer(picture& p){
 	for(int i=0;i<v;i++){
 		for(int j=0;j<h;j++){
 			for(int c=2;c>=0;c--){
-				buf[3*((v-1-i)*h+j)+(2-c)] = Clip(p.img[c][i][j],0,255);
+				buf[3*((v-1-i)*h+j)+(2-c)] = p.img[c][i][j];
 			}
 		}
 	}
@@ -77,19 +76,19 @@ void picture2buffer(picture& p){
 		if(image_buffer.size()<20){
 			break;
 		} else{
-			puts("queue full!! so sleep.....");
+			//puts("queue full!! so sleep.....");
 			usleep(50000);
 		}
 	}
 	lock_guard<mutex> lock(gg);
 	image_buffer.push(buf);
-	printf("image_buffer size:%lu\n",image_buffer.size());
+	//printf("image_buffer size:%lu\n",image_buffer.size());
 }
-void read_gop(sequence_header* sh){	
+void read_gop(sequence_header* sh){
 	group_of_pictures gop(bb);
 	gop.read();
 	do{
-		picture p(bb,sh);
+		picture p(bb,sh->mb_width*16,sh->mb_height*16);
 		p.read();
 		do{
 			slice sl(bb,sh);
@@ -97,20 +96,45 @@ void read_gop(sequence_header* sh){
 			do{
 				macroblock m(bb,sh,&sl,&p,p.picture_coding_type-1);
 				m.read();
-				macro_num++;
 			}	while(bb->nextbits(23) != 0);
 			bb->next_start_code();
 			slice_num++;
-			printf("slice %d %d!!!!",slice_num,macro_num);
+			printf("slice %d !!!!",slice_num);
 		} while(slice_start_code_check(bb->nextbits()));
-		p.final_picture(sh->horizontal_size, sh->vertical_size);
-		picture2buffer(p);
+		if(p.picture_coding_type == 1 || p.picture_coding_type == 2){
+			if(sh->picture_ref0!= nullptr){
+				delete (sh->picture_ref0);
+			}
+			if(sh->picture_ref1!= nullptr){
+				sh->picture_ref0 = new picture(*(sh->picture_ref1));
+			}
+			//
+			sh->picture_ref1 = new picture(p);
+			/*
+			for(int i=0;i<3;i++){
+				for(int x = 0;x<p.img[i].size();x++){
+					for(int y=0;y<p.img[i][x].size();y++)
+					{
+						assert(p.img[i][x][y]==sh->picture_ref1->img[i][x][y]);
+					}
+				}
+			}*/
+			if(sh->picture_ref0 != nullptr){
+				picture show(*(sh->picture_ref0));
+				show.final_picture(h, v);
+				picture2buffer(show);
+			}
+		}
+		else{
+			p.final_picture(sh->horizontal_size, sh->vertical_size);
+			picture2buffer(p);
+		}
 	}while(bb->nextbits() == PICTURE_START_CODE);
 }
 void *video_sequence(void* input){
 	bb->next_start_code();
+	sequence_header sh(bb);
 	do{
-		sequence_header sh(bb);
 		sh.read();
 		if(h == 0 && v ==	0){
 			h = sh.horizontal_size, v = sh.vertical_size;
@@ -120,7 +144,7 @@ void *video_sequence(void* input){
 		}
 		do{
 			read_gop(&sh);
-			puts("read gop done");
+			//puts("read gop done");
 		} while(bb->nextbits() == GROUP_START_CODE);	
 	} while(bb->nextbits() == SEQUENCE_HEADER_CODE);
 	puts("end");
@@ -148,13 +172,12 @@ int main(int argc,char* argv[]){
 			glutInitDisplayMode(GLUT_DOUBLE | GLUT_RGBA | GLUT_ALPHA); 
 			glutDisplayFunc(Display);
 
-			glutTimerFunc(500, SystemTimer, 1);
+			glutTimerFunc(timer, SystemTimer, 1);
 
 			glutMainLoop();
 			break;
 		}
 	}
-	printf("%d %d\n",v,h);
 
 	return 0;
 }
