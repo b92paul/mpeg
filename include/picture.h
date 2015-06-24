@@ -54,7 +54,6 @@ struct picture{
 		assert(picture_start_code == PICTURE_START_CODE);
 		temporal_reference = bb->get(10);
 		picture_coding_type = bb->get(3);
-		//printf("type: %d\n",picture_coding_type);
 		vbv_delay = bb->get(16);
 		if(picture_coding_type == 2 || picture_coding_type == 3){
 			full_pel_forward_vector = bb->get(1);

@@ -29,7 +29,7 @@
 mutex gg;
 volatile int v,h;
 queue<uint8_t*> image_buffer;
-int timer = 40;
+int timer = 30;
 void SystemTimer(int _value){
 	glutPostRedisplay();
 	glutTimerFunc(timer, SystemTimer, 1);
@@ -99,7 +99,6 @@ void read_gop(sequence_header* sh){
 			}	while(bb->nextbits(23) != 0);
 			bb->next_start_code();
 			slice_num++;
-			printf("slice %d !!!!",slice_num);
 		} while(slice_start_code_check(bb->nextbits()));
 		if(p.picture_coding_type == 1 || p.picture_coding_type == 2){
 			if(sh->picture_ref0!= nullptr){
@@ -108,17 +107,7 @@ void read_gop(sequence_header* sh){
 			if(sh->picture_ref1!= nullptr){
 				sh->picture_ref0 = new picture(*(sh->picture_ref1));
 			}
-			//
 			sh->picture_ref1 = new picture(p);
-			/*
-			for(int i=0;i<3;i++){
-				for(int x = 0;x<p.img[i].size();x++){
-					for(int y=0;y<p.img[i][x].size();y++)
-					{
-						assert(p.img[i][x][y]==sh->picture_ref1->img[i][x][y]);
-					}
-				}
-			}*/
 			if(sh->picture_ref0 != nullptr){
 				picture show(*(sh->picture_ref0));
 				show.final_picture(h, v);
@@ -144,7 +133,7 @@ void *video_sequence(void* input){
 		}
 		do{
 			read_gop(&sh);
-			//puts("read gop done");
+			puts("read gop done");
 		} while(bb->nextbits() == GROUP_START_CODE);	
 	} while(bb->nextbits() == SEQUENCE_HEADER_CODE);
 	puts("end");

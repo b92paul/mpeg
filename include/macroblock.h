@@ -35,7 +35,7 @@ struct macroblock{
 	int mo_h_b_r, mo_v_b_r;
 	bool skipping=false;
 	macroblock(bit_buf* _bb,sequence_header* _sh, slice* _slice_now, picture* _p, uint8_t _ptype)
-		:bb(_bb), sh(_sh), slice_now(_slice_now), p(_p),ptype(_ptype){}
+		:bb(_bb), sh(_sh),ptype(_ptype), slice_now(_slice_now), p(_p){}
 	void to_zig_zag(int dct_zz[64],int dct_recon[8][8]){
 		for(int m=0;m<8;m++)
 			for(int n=0;n<8;n++)
@@ -95,8 +95,8 @@ struct macroblock{
 						level = (int)flc - 256;
 					}
 					else if(flc == 0x00){
-							flc = bb->get(8);
-							level = flc;
+						flc = bb->get(8);
+						level = flc;
 					}
 					else{
 						if(flc& 0x80) level= (int)flc -256;
@@ -165,7 +165,7 @@ struct macroblock{
 					d = (2*d*(quantizer_scale)*(sh->intra_quantizer_matrix[m][n]))/16;
 					if((d&1)==0)
 						d = d-Sign(d);
-						Clip(d,-2048,2047);
+					Clip(d,-2048,2047);
 				}
 			}
 			if(i<4){
@@ -235,12 +235,10 @@ struct macroblock{
 				down_for  = sh->recon_down_for >> 1;
 				right_half_for = sh->recon_right_for - 2*right_for;
 				down_half_for  = sh->recon_down_for  - 2*down_for;
-				//printf("%d %d\n",right_for,down_for);
-				//printf("%d %d\n",right_half_for,down_half_for);
 				assert(sh->picture_ref1!=NULL);
 				for(int y=0;y<8;y++){
 					for(int x = 0;x<8;x++){
-						dct_recon[y][x] += get_half(sh->picture_ref1->img[0],bx+x+right_for,by+y+down_for,0,0);
+						dct_recon[y][x] += get_half(sh->picture_ref1->img[0],bx+x+right_for,by+y+down_for,right_half_for,down_half_for);
 						p->img[0][by+y][bx+x] = Clip(dct_recon[y][x], 0,255);
 					}
 				}
@@ -251,19 +249,105 @@ struct macroblock{
 				down_half_for = sh->recon_down_for/2 - 2*down_for;
 				for(int y=0; y<8; y++){
 					for(int x = 0; x<8; x++){
-						dct_recon[y][x] +=get_half(sh->picture_ref1->img[i-4+1],bx+x+right_for,by+y+down_for,0,0);
-						//printf("%d %d %d ",y+by,x+bx,sh->picture_ref1->img[i-4+1][by+y][bx+x]);
+						dct_recon[y][x] +=get_half(sh->picture_ref1->img[i-4+1],bx+x+right_for,by+y+down_for,right_half_for,down_half_for);
 						p->img[i-4+1][by+y][bx+x] = Clip(dct_recon[y][x],0,255);
 					}
-				}//puts("");
+				}
 			}
 		} else if(ptype ==2){
 			//TODO B
-			assert(false);
-		
+			assert(sh->picture_ref0 != nullptr);
+			for(int m=0;m<8;m++){
+				for(int n=0;n<8;n++){
+					int&d = dct_recon[m][n];
+					if(d==0)continue;
+					d = ( (2*d+Sign(d)) *quantizer_scale*(sh->non_intra_quantizer_matrix[m][n]))/16;
+					if((d&1) == 0 ) d -= Sign(d);
+					d = Clip(d,-2048,2047);
+				}
+			}
+			idct(dct_recon);
+			int right_for, right_half_for;
+			int down_for, down_half_for;
+			int right_back, right_half_back;
+			int down_back, down_half_back;
+			int idx = max(i-4+1,0);
+			if(mt.macroblock_motion_forward){
+				if(i<4){
+					right_for = sh->recon_right_for >> 1;
+					down_for  = sh->recon_down_for >> 1;
+					right_half_for = sh->recon_right_for - 2*right_for;
+					down_half_for  = sh->recon_down_for  - 2*down_for;
+				} else{
+					right_for = (sh->recon_right_for/2) >> 1;
+					down_for = (sh->recon_down_for/2) >> 1;
+					right_half_for = sh->recon_right_for/2 - 2*right_for;
+					down_half_for = sh->recon_down_for/2 - 2*down_for;	
+				}
+				if(mt.macroblock_motion_backward){
+					if(i<4){
+						right_back = sh->recon_right_back >> 1;
+						down_back  = sh->recon_down_back >> 1;
+						right_half_back = sh->recon_right_back - 2*right_back;
+						down_half_back  = sh->recon_down_back  - 2*down_back;
+					} else{
+						right_back = (sh->recon_right_back/2) >> 1;
+						down_back = (sh->recon_down_back/2) >> 1;
+						right_half_back = sh->recon_right_back/2 - 2*right_back;
+						down_half_back = sh->recon_down_back/2 - 2*down_back;	
+					}
+					for(int y=0;y<8;y++){
+						for(int x=0;x<8;x++){
+							dct_recon[y][x]+= div_round(
+									get_half(sh->picture_ref0->img[idx],bx+x+right_for ,
+										by+y+down_for ,right_half_for ,down_half_for ) +
+									get_half(sh->picture_ref1->img[idx],bx+x+right_back,
+										by+y+down_back,right_half_back,down_half_back),2
+									);
+							//dct_recon[y][x] = 0;
+						}
+					}
+				} else {
+					for(int y=0;y<8;y++){
+						for(int x=0;x<8;x++){
+							dct_recon[y][x]+= 
+								get_half(sh->picture_ref0->img[idx],bx+x+right_for ,
+										by+y+down_for ,right_half_for ,down_half_for ) ;
+						}
+					}
+				}
+			}else{
+				if(i<4){
+					right_back = sh->recon_right_back >> 1;
+					down_back  = sh->recon_down_back >> 1;
+					right_half_back = sh->recon_right_back - 2*right_back;
+					down_half_back  = sh->recon_down_back  - 2*down_back;
+				} else{
+					right_back = (sh->recon_right_back/2) >> 1;
+					down_back = (sh->recon_down_back/2) >> 1;
+					right_half_back = sh->recon_right_back/2 - 2*right_back;
+					down_half_back = sh->recon_down_back/2 - 2*down_back;	
+				}
+				for(int y=0;y<8;y++){
+					for(int x=0;x<8;x++){
+						dct_recon[y][x] += 
+							get_half(sh->picture_ref1->img[idx],bx+x+right_back,
+									by+y+down_back,right_half_back,down_half_back);
+					}
+				}
+
+			}
+			for(int y=0;y<8;y++){
+				for(int x=0;x<8;x++){
+					p->img[idx][by+y][bx+x] = Clip(dct_recon[y][x],0,255);
+				}
+			}
+			//assert(false);
+
 		}
 	}
 	int get_half(vector<vector<int>>&data, int x, int y, int hx, int hy){
+		//if(x>(data[0].size()-1) ||x<0||y<0 ||y>(data.size()-1))return 0;
 		if(!hx){
 			if(!hy) return data[y][x];
 			else return div_round(data[y][x] + data[y+1][x],2);
@@ -288,7 +372,10 @@ struct macroblock{
 			sh->dct_dc_y_past = sh->dct_dc_cb_past = sh->dct_dc_cr_past = 1024;
 		}
 		else if(ptype ==2){
+			assert(mt.macroblock_motion_forward|mt.macroblock_motion_backward);
+
 			int dct_zz[64];
+			assert(mt.macroblock_intra==false);
 			memset(dct_zz,0,sizeof(dct_zz));
 			for(int i=0;i<6;i++){
 				block_data(i,dct_zz);
@@ -308,13 +395,11 @@ struct macroblock{
 			macroblock_escape ++;
 		}
 		//incr
-		uint16_t tmp = bb->nextbits(16);
 		peek = bb->nextbits(16);
 		len = mav[peek].len; //get_len
 		bb->get(len);
 		macro_addr_incr = mav[peek].incr_value + macroblock_escape * 33;
 		macroblock_address = sh->pre_macroblock_address + macro_addr_incr;
-		int addr_tmp = macroblock_address;
 		skipping = true;
 		for(int addr = sh->pre_macroblock_address+1; addr < macroblock_address; addr++){
 			assert(addr>=0);
@@ -324,7 +409,7 @@ struct macroblock{
 			skip_macroblock();
 		}
 		skipping = false;
-		
+
 		sh->mb_row = macroblock_address/ sh->mb_width;
 		sh->mb_column = macroblock_address % sh->mb_width;
 		//type
@@ -363,6 +448,7 @@ struct macroblock{
 		}
 		else{
 			if(ptype == 1){
+				sh->recon_right_for_pre = sh->recon_down_for_pre = 0;
 				sh->recon_right_for = sh->recon_down_for = 0;
 			}
 		}
@@ -381,6 +467,7 @@ struct macroblock{
 			mo_v_b_code = mvv[peek].code;
 			if( (p->backward_f!=1) && (mo_v_b_code!=0))
 				mo_v_b_r = bb->get(p->backward_r_size);
+			calc_backward_vector();
 		}
 		//assert(mt.macroblock_intra);
 		cbp = 0;
@@ -407,7 +494,10 @@ struct macroblock{
 				sh->recon_right_for_pre = sh->recon_down_for_pre = 0; 
 			} 
 		} else if(ptype==2){
-		
+			if(mt.macroblock_intra){
+				sh->recon_right_for_pre = sh->recon_down_for_pre = 0;
+				sh->recon_right_back_pre = sh->recon_down_back_pre = 0;
+			}
 		}
 	}
 	void calc_forward_vector(){
@@ -464,7 +554,7 @@ struct macroblock{
 			recon_right_for = recon_right_for_pre + right_big;
 		recon_right_for_pre = recon_right_for;
 		if(p->full_pel_forward_vector) recon_right_for <<=1;
-		
+
 		new_vector = recon_down_for_pre + down_little;
 		if(new_vector<=Max && new_vector>=Min)
 			recon_down_for = recon_down_for_pre + down_little;
@@ -472,6 +562,70 @@ struct macroblock{
 			recon_down_for = recon_down_for_pre + down_big;
 		recon_down_for_pre = recon_down_for;
 		if(p->full_pel_forward_vector) recon_down_for <<=1;
+		//new_vector = recon_right
+	}
+	void calc_backward_vector(){
+		int	complement_horizontal_backward_r, complement_vertical_backward_r;
+		int backward_f = p->backward_f;
+		if(backward_f ==1 || mo_h_b_code == 0){
+			complement_horizontal_backward_r = 0;
+		} else{
+			complement_horizontal_backward_r = backward_f -1 -mo_h_b_r;
+		}
+		if(backward_f ==1 || mo_v_b_code == 0){
+			complement_vertical_backward_r = 0;
+		} else{
+			complement_vertical_backward_r = backward_f -1 -mo_v_b_r;
+		}
+		int right_little = mo_h_b_code * backward_f, right_big;
+		if(right_little==0){
+			right_big = 0;
+		} else{
+			if(right_little>0){
+				right_little = right_little - complement_horizontal_backward_r;
+				right_big = right_little - 32*backward_f;
+			} else{
+				right_little = right_little + complement_horizontal_backward_r;
+				right_big = right_little +	32*backward_f;
+			}
+		}
+		assert(right_little!=backward_f*16);
+		int down_little = mo_v_b_code * backward_f, down_big;
+		if(down_little ==0){
+			down_big = 0;
+		}	else{
+			if(down_little>0){
+				down_little = down_little - complement_vertical_backward_r;
+				down_big = down_little - 32*backward_f;
+			} else{
+				down_little = down_little + complement_vertical_backward_r;
+				down_big = down_little + 32*backward_f;
+			}
+		}
+		assert(down_little != backward_f*16);
+		int& recon_right_back = sh->recon_right_back;
+		int& recon_right_back_pre = sh->recon_right_back_pre;
+		int& recon_down_back = sh-> recon_down_back;
+		int& recon_down_back_pre = sh->recon_down_back_pre;
+
+		int Max = ( 16*backward_f)-1;
+		int Min = (-16*backward_f);
+		int new_vector;
+		new_vector = recon_right_back_pre + right_little;
+		if(new_vector<=Max && new_vector>=Min)
+			recon_right_back = recon_right_back_pre + right_little;
+		else
+			recon_right_back = recon_right_back_pre + right_big;
+		recon_right_back_pre = recon_right_back;
+		if(p->full_pel_backward_vector) recon_right_back <<=1;
+
+		new_vector = recon_down_back_pre + down_little;
+		if(new_vector<=Max && new_vector>=Min)
+			recon_down_back = recon_down_back_pre + down_little;
+		else
+			recon_down_back = recon_down_back_pre + down_big;
+		recon_down_back_pre = recon_down_back;
+		if(p->full_pel_backward_vector) recon_down_back <<=1;
 		//new_vector = recon_right
 	}
 

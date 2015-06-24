@@ -19,16 +19,12 @@ struct slice{
 	void read(){
 		sh->dct_dc_y_past = sh->dct_dc_cb_past = sh->dct_dc_cr_past = 1024;
 		sh->recon_right_for_pre = sh->recon_down_for_pre = 0;
-		sh->recon_right_for = sh->recon_down_for = 0;
+		sh->recon_right_back_pre = sh->recon_down_back_pre = 0;
 		sh->past_intra_address = -2;
 		slice_start_code = bb->get(32);
 		assert(slice_start_code_check(slice_start_code));
-		//printf("slice_start_code %x\n",slice_start_code);
 		slice_vertical_position = slice_start_code & 0x000000ff;
-		//printf("vertical %d\n",slice_vertical_position);
 		sh->pre_macroblock_address=(slice_vertical_position-1)*(sh->mb_width)-1;
-		//printf("pre;%u\n",sh->pre_macroblock_address);
-		//printf("pre_address!!!!!!!!!!!:%d\n",sh->pre_macroblock_address);
 		quantizer_scale = bb->get(5);
 		while( bb->nextbits() == 1){
 			extra_bit_slice = bb->get(1);

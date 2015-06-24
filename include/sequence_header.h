@@ -28,6 +28,8 @@ struct sequence_header{
 	int mb_row, mb_column;
 	int recon_right_for_pre, recon_down_for_pre;
 	int recon_right_for, recon_down_for;
+	int recon_right_back, recon_down_back;
+	int recon_right_back_pre, recon_down_back_pre;
 	int intra_quantizer_matrix[8][8] = {
 		{ 8,16,19,22,26,27,29,34},
 		{16,16,22,24,27,29,34,37},
@@ -95,7 +97,7 @@ struct sequence_header{
 			bb->next_start_code();
 		}
 
-		//puts("read sequence_header done!!!");
+		puts("read sequence_header done!!!");
 	}
 };
 #endif
