@@ -29,7 +29,7 @@
 mutex gg;
 volatile int v,h;
 queue<uint8_t*> image_buffer;
-int timer = 30;
+int timer = 25;
 void SystemTimer(int _value){
 	glutPostRedisplay();
 	glutTimerFunc(timer, SystemTimer, 1);
